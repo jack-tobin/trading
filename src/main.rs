@@ -7,8 +7,19 @@
 mod broker;
 mod order;
 
-fn main() {
+use broker::Broker;
+use order::{Order, Confirm};
 
-    let b = broker::Broker::new(trading_costs: 0.05);
+fn main() {
+    // Establish our broker with $0.05 trading costs.
+    let broker: Broker = Broker::new(0.05);
+
+    // Make an order for +100 AAPL shares.
+    let ticker: String = "AAPL".to_string();
+    let shares = 100;
+    let order = Order::new(ticker, shares);
+
+    // Instruct broker to execute my order.
+    let confirm: Confirm = broker.execute(order);
 
 }

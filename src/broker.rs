@@ -8,7 +8,8 @@
 /// order filled, at what price, the timestamp, etc.
 ///
 
-use rand_distr::Normal;
+use rand_distr::{Normal, Uniform, Distribution};
+use rand;
 use crate::order::{Order, Confirm};
 
 pub struct Broker {
@@ -64,13 +65,34 @@ impl Broker {
     ///
     /// Returns
     /// -------
-    /// Normal<f32>
+    /// f32
     ///     A normally distributed float.
     ///
-    fn market_noise(&self, mean: f32, variance: f32) -> Normal<f32> {
+    fn market_noise(&self, mean: f32, variance: f32) -> f32 {
         let stdev: f32 = variance.powf(1.0/2.0);
-        let noise = Normal::new(0.0, stdev).unwrap();
-        return noise;
+        let normal = Normal::new(mean, stdev).unwrap();
+        normal.sample(&mut rand::thread_rng())
+    }
+
+    /// Produce market slippage.
+    /// 
+    /// This produces a random uniformly distributed number no greater
+    /// than a given max slippage amount.
+    /// 
+    /// Parameters
+    /// ----------
+    /// max_slippage : i64
+    ///     The maximum amount of possible market slippage.
+    /// 
+    /// Returns
+    /// -------
+    /// i64
+    ///     Returns the number of shares missed by execution.
+    ///     
+    fn market_slippage(&self, max_slippage: i64) -> i64 {
+        let uniform = Uniform::new(0, max_slippage);
+        let slippage = uniform.sample(&mut rand::thread_rng());
+        return slippage;
     }
 
     /// Get executed price for a given trade.
@@ -98,8 +120,62 @@ impl Broker {
         return *quote + random_noise;
     }
 
+    /// Get executed quantity for a given trade.
+    /// 
+    /// Once broker goes to market, there is variability with respect to the
+    /// number of shares in the order that the broker is able to fill. This
+    /// method performs the action of approaching the market with a given
+    /// number of desired shares and then returning with the order executed
+    /// at a slightly lower number of shares (amount of shares returned 
+    /// will be strictly less than the amount requested.)
+    /// 
+    /// We'll assume the delta is uniformly distributed between 0 and 25%
+    /// of the order size.
+    /// 
+    fn executed_quantity(&self, quantity_desired: i64) -> i64 {
+        let max_slippage = (0.25 * (quantity_desired as f64)) as i64;
+        let slippage = self.market_slippage(max_slippage);
+
+        // If quantity desired is negative, need to add the slippage to the order.
+        // Otherwise, subtract it.
+        if quantity_desired < 0 {
+            quantity_desired + slippage
+        } else if quantity_desired > 0 {
+            quantity_desired - slippage
+        } else {
+            0
+        }
+    }
+
+    /// Execute a trade.
+    /// 
+    /// This executes an order, returning back to the user a trade confirmation
+    /// which details the quantity filled and price at which it was filled.
+    /// 
+    /// Parameters
+    /// ----------
+    /// order : Order
+    ///     Order to execute.
+    /// 
+    /// Returns
+    /// -------
+    /// Confirm
+    ///     Returns a trade confirmation.
+    /// 
     pub fn execute(&self, order: Order) -> Confirm {
 
-        return;
+        let quote = self.quote(&order.ticker, order.quantity);
+        let executed_price = self.executed_price(&quote);
+        let trading_costs = self.trading_costs * order.quantity as f32;
+        let amount_filled = self.executed_quantity(order.quantity);
+
+        let confirm = Confirm::new(
+            order.ticker,
+            amount_filled,
+            executed_price,
+            trading_costs,
+        );
+
+        confirm
     }
 }
