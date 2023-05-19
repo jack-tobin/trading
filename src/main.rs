@@ -22,4 +22,5 @@ fn main() {
     // Instruct broker to execute my order.
     let confirm: Confirm = broker.execute(order);
 
+    println!("{}", confirm);
 }

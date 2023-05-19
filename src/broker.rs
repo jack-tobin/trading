@@ -176,6 +176,6 @@ impl Broker {
             trading_costs,
         );
 
-        confirm
+        return confirm;
     }
 }
