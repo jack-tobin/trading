@@ -6,9 +6,11 @@
 
 mod broker;
 mod order;
+mod config;
 
 use broker::Broker;
 use order::{Order, Confirm};
+use config::get_api_key;
 
 fn main() {
     // Establish our broker with $0.05 trading costs.
@@ -23,4 +25,7 @@ fn main() {
     let confirm: Confirm = broker.execute(order);
 
     println!("{}", confirm);
+
+    // Get API key
+    get_api_key();
 }
