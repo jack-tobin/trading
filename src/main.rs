@@ -10,7 +10,7 @@ mod config;
 
 use broker::Broker;
 use order::{Order, Confirm};
-use config::get_api_key;
+use config::Config;
 
 fn main() {
     // Establish our broker with $0.05 trading costs.
@@ -27,5 +27,6 @@ fn main() {
     println!("{}", confirm);
 
     // Get API key
-    get_api_key();
+    let config: Config = Config::get("AV_KEY".to_string()).expect("Not found");
+    println!("{}", config.av_key);
 }
