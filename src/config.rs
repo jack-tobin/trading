@@ -3,7 +3,7 @@
 use std::env;
 
 pub struct Config {
-    pub av_key: String,
+    pub api_key: String,
 }
 
 impl Config {
@@ -11,7 +11,7 @@ impl Config {
         let result = env::var(key).expect("Key not found.");
         Ok(
             Config {
-                av_key: result,
+                api_key: result,
             }
         )
     }

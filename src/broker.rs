@@ -11,38 +11,47 @@
 use rand_distr::{Normal, Uniform, Distribution};
 use rand;
 use crate::order::{Order, Confirm};
+use crate::data_loading::AlphaVantage;
 
 pub struct Broker {
-    trading_costs: f32,
+    trading_costs: f64,
 }
 
 impl Broker {
 
-    pub fn new(trading_costs: f32) -> Broker {
+    pub fn new(trading_costs: f64) -> Broker {
         return Broker {
             trading_costs,
         };
     }
 
-    pub fn quote(&self, ticker: &str, quantity: i64) -> f32 {
-        return 3.0;
+    pub fn quote(&self, ticker: &str) -> f64 {
+        let av = AlphaVantage;
+        let quote = av.get_quote(ticker.to_string())
+            .unwrap();
+
+        quote
     }
 
-    fn market_noise(&self, mean: f32, variance: f32) -> f32 {
-        let stdev: f32 = variance.powf(1.0/2.0);
-        let normal = Normal::new(mean, stdev).unwrap();
+    fn market_noise(&self, mean: f64, variance: f64) -> f64 {
+        let stdev: f64 = variance.powf(1.0/2.0);
+        let normal = Normal::new(mean, stdev)
+            .unwrap();
+
         normal.sample(&mut rand::thread_rng())
     }
 
     fn market_slippage(&self, max_slippage: i64) -> i64 {
         let uniform = Uniform::new(0, max_slippage);
         let slippage = uniform.sample(&mut rand::thread_rng());
-        return slippage;
+
+        slippage
     }
 
-    fn executed_price(&self, quote: &f32) -> f32 {
+    fn executed_price(&self, quote: &f64) -> f64 {
         let random_noise = self.market_noise(0.0, 1.0);
-        return *quote + random_noise;
+
+        *quote + random_noise
     }
 
     fn executed_quantity(&self, quantity_desired: i64) -> i64 {
@@ -62,9 +71,9 @@ impl Broker {
 
     pub fn execute(&self, order: Order) -> Confirm {
 
-        let quote = self.quote(&order.ticker, order.quantity);
+        let quote = self.quote(&order.ticker);
         let executed_price = self.executed_price(&quote);
-        let trading_costs = self.trading_costs * order.quantity as f32;
+        let trading_costs = self.trading_costs * order.quantity as f64;
         let amount_filled = self.executed_quantity(order.quantity);
 
         let confirm = Confirm::new(
