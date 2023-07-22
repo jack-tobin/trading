@@ -11,7 +11,7 @@
 use rand_distr::{Normal, Uniform, Distribution};
 use rand;
 use crate::order::{Order, Confirm, OrderResult};
-use crate::data_loading::AlphaVantage;
+use crate::data_loading::{AlphaVantage, Quote};
 use std::io::Result;
 
 pub struct Broker {
@@ -26,7 +26,7 @@ impl Broker {
         }
     }
 
-    pub fn quote(&self, ticker: &String) -> Result<f64> {
+    pub fn quote(&self, ticker: &String) -> Result<Quote> {
         let av = AlphaVantage;
         let quote = av.get_quote(ticker)
             .unwrap();
@@ -51,12 +51,12 @@ impl Broker {
         Ok(slippage)
     }
 
-    fn executed_price(&self, quote: f64) -> Result<f64> {
+    fn executed_price(&self, quote: Quote) -> Result<f64> {
         let random_noise = match self.market_noise(0.0, 1.0) {
             Ok(noise) => noise,
             Err(error) => panic!("Error in computing market noise: {:?}", error),
         };
-        let executed_price = quote + random_noise;
+        let executed_price = quote.quote + random_noise;
 
         Ok(executed_price)
     }

@@ -5,13 +5,19 @@
 use crate::config::Config;
 extern crate reqwest;
 use std::io::Result;
-use serde_aux::prelude::*;
 use polars::series::Series;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-struct Quote {
-    #[serde(deserialize_with = "deserialize_number_from_string")]
-    quote: f64,
+pub struct Quote {
+    pub ticker: String,
+    pub quote: f64,
+}
+impl Quote {
+    pub fn new(ticker: String, quote: f64) -> Self {
+        Self {
+            ticker,
+            quote,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -34,17 +40,20 @@ impl AlphaVantage {
 
     // Get API key
     // Assumes that the api key is stored as an environment variable called AV_KEY
-    fn get_api_key(&self) -> String {
+    fn get_api_key(&self) -> Result<String> {
         let config = Config::get("AV_KEY".to_string())
             .expect("Environment variable AV_KEY not found");
 
-        config.api_key
+        Ok(config.api_key)
     }
 
     // Get a quote for a ticker.
-    pub fn get_quote(&self, ticker: &String) -> Result<f64> {
+    pub fn get_quote(&self, ticker: &String) -> Result<Quote> {
         // Get API key.
-        let api_key: String = self.get_api_key();
+        let api_key: String = match self.get_api_key() {
+            Ok(key) => key,
+            Err(error) => panic!("Error getting API key: {:?}", error),
+        };
 
         // Build URL.
         let url_prefix: &str = "?function=GLOBAL_QUOTE&";
@@ -64,11 +73,12 @@ impl AlphaVantage {
         let parsed = price_string.parse::<f64>()
             .expect("Unable to parse string into f64.");
 
-        let quote = Quote{
-            quote: parsed
-        };
+        let quote = Quote::new(
+            ticker,
+            parsed,
+        );
 
-        Ok(quote.quote)
+        Ok(quote)
     }
 
     pub fn _get_timeseries(
@@ -77,7 +87,10 @@ impl AlphaVantage {
         interval: Interval,
     ) -> Result<Series> {
         // Get API key.
-        let api_key: String = self.get_api_key();
+        let api_key: String = match self.get_api_key() {
+            Ok(key) => key,
+            Err(error) => panic!("Error getting API key: {:?}", error),
+        };
 
         // Determine function based on frequency:
         let function = match interval {
