@@ -22,7 +22,10 @@ fn main() {
     let order = Order::new(ticker, shares);
 
     // Instruct broker to execute my order.
-    let confirm: Confirm = broker.execute(order);
+    let confirm: Confirm = match broker.execute(order) {
+        Ok(result) => result,
+        Err(error) => panic!("Error in excution: {:?}", error),
+    };
 
     println!("{}", confirm);
 }

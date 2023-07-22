@@ -31,7 +31,6 @@ impl Order {
             quantity
         }
     }
-
 }
 
 impl fmt::Display for Order {
@@ -43,6 +42,22 @@ impl fmt::Display for Order {
             self.quantity,
             self.timestamp,
         )
+    }
+}
+
+pub struct OrderResult {
+    pub ticker: String,
+    pub filled_quantity: i64,
+    pub filled_price: f64,
+}
+
+impl OrderResult {
+    pub fn new(ticker: String, filled_quantity: i64, filled_price: f64) -> OrderResult {
+        OrderResult {
+            ticker,
+            filled_quantity,
+            filled_price,
+        }
     }
 }
 
@@ -75,7 +90,6 @@ impl Confirm {
             trading_costs,
         }
     }
-
 }
 
 impl fmt::Display for Confirm {
