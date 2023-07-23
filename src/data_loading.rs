@@ -3,10 +3,10 @@
 ///
 
 use crate::config::Config;
-extern crate reqwest;
 use std::io::Result;
 use polars::series::Series;
 use crate::order::Quote;
+use reqwest::blocking::get;
 
 pub enum Interval {
     Minute,
@@ -55,7 +55,7 @@ impl AlphaVantage {
             .expect("Error generating URL.");
 
         // Make request.
-        let response = reqwest::blocking::get(url)
+        let response = get(url)
             .unwrap()
             .json::<serde_json::Value>()
             .expect("Error in coercing response to json.");
@@ -97,7 +97,7 @@ impl AlphaVantage {
             .expect("Error in generating URL.");
 
         // Make request.
-        let response = reqwest::blocking::get(url)
+        let response = get(url)
             .unwrap()
             .json::<serde_json::Value>()
             .expect("Error in coercing response to json.");
