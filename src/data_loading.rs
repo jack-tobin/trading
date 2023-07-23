@@ -6,22 +6,10 @@ use crate::config::Config;
 extern crate reqwest;
 use std::io::Result;
 use polars::series::Series;
-
-pub struct Quote {
-    pub ticker: String,
-    pub quote: f64,
-}
-impl Quote {
-    pub fn new(ticker: String, quote: f64) -> Self {
-        Self {
-            ticker,
-            quote,
-        }
-    }
-}
+use crate::order::Quote;
 
 #[derive(Debug)]
-enum Interval {
+pub enum Interval {
     Minute,
     FiveMinute,
     FifteenMinute,
@@ -33,9 +21,7 @@ enum Interval {
 }
 
 pub struct AlphaVantage;
-
 impl AlphaVantage {
-
     const BASE_URL: &str = "https://www.alphavantage.co/query";
 
     // Get API key
@@ -47,18 +33,27 @@ impl AlphaVantage {
         Ok(config.api_key)
     }
 
-    // Get a quote for a ticker.
-    pub fn get_quote(&self, ticker: &String) -> Result<Quote> {
-        // Get API key.
-        let api_key: String = match self.get_api_key() {
-            Ok(key) => key,
-            Err(error) => panic!("Error getting API key: {:?}", error),
-        };
+    fn get_url(&self, function: String, symbol: String) -> Result<String> {
+        let api_key = self.get_api_key()
+            .expect("Error generating API key.");
 
+        let url_suffix = format!(
+            "?function={}&symbol={}&apikey={}",
+            function,
+            symbol,
+            api_key,
+        );
+        let url = [Self::BASE_URL.to_string(), url_suffix].join("");
+
+        Ok(url)
+    }
+
+    // Get a quote for a ticker.
+    pub fn get_quote(&self, ticker: String, quantity: i64) -> Result<Quote> {
         // Build URL.
-        let url_prefix: &str = "?function=GLOBAL_QUOTE&";
-        let url_suffix = format!("symbol={}&apikey={}", ticker, api_key);
-        let url = format!("{}{}{}", Self::BASE_URL, url_prefix, url_suffix);
+        let function = "GLOBAL_QUOTE".to_string();
+        let url = self.get_url(function, ticker.clone())
+            .expect("Error generating URL.");
 
         // Make request.
         let response = reqwest::blocking::get(url)
@@ -74,8 +69,9 @@ impl AlphaVantage {
             .expect("Unable to parse string into f64.");
 
         let quote = Quote::new(
-            ticker,
+            ticker.clone(),
             parsed,
+            quantity,
         );
 
         Ok(quote)
@@ -86,12 +82,6 @@ impl AlphaVantage {
         ticker: String,
         interval: Interval,
     ) -> Result<Series> {
-        // Get API key.
-        let api_key: String = match self.get_api_key() {
-            Ok(key) => key,
-            Err(error) => panic!("Error getting API key: {:?}", error),
-        };
-
         // Determine function based on frequency:
         let function = match interval {
             Interval::Minute => "TIME_SERIES_INTRADAY&interval=1min",
@@ -102,13 +92,10 @@ impl AlphaVantage {
             Interval::Day => "TIME_SERIES_DAILY",
             Interval::Week => "TIME_SERIES_WEEKLY",
             Interval::Month => "TIME_SERIES_MONTHLY",
-            _ => panic!("Invalid interval: {:?}", interval),
         };
 
-        // Build URL.
-        let url_prefix = format!("?function={}&", function);
-        let url_suffix = format!("symbol={}&apikey={}", ticker, api_key);
-        let url = format!("{}{}{}", Self::BASE_URL, url_prefix, url_suffix);
+        let url = self.get_url(function.to_string(), ticker.clone())
+            .expect("Error in generating URL.");
 
         // Make request.
         let response = reqwest::blocking::get(url)
@@ -120,7 +107,7 @@ impl AlphaVantage {
 
         // Coerce json response to a polars series.
 
-        let series = Series::new("x", [1, 2, 3]);
+        let series = [1, 2, 3].iter().collect();
         Ok(series)
     }
 }

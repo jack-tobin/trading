@@ -8,6 +8,8 @@ mod broker;
 mod order;
 mod config;
 mod data_loading;
+mod backtest;
+mod strategy;
 
 use broker::Broker;
 use order::{Order, Confirm};
@@ -19,13 +21,10 @@ fn main() {
     // Make an order for +100 AAPL shares.
     let ticker: String = "AAPL".to_string();
     let shares = 100;
-    let order = Order::new(ticker, shares);
+    let order = Order::new(ticker.clone(), shares);
 
     // Instruct broker to execute my order.
-    let confirm: Confirm = match broker.execute(order) {
-        Ok(result) => result,
-        Err(error) => panic!("Error in excution: {:?}", error),
-    };
-
+    let confirm: Confirm = broker.execute(order)
+        .expect("Error in execution.");
     println!("{}", confirm);
 }

@@ -7,10 +7,10 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn get(key: String) -> Result<Config, &'static str> {
+    pub fn get(key: String) -> Result<Self, &'static str> {
         let result = env::var(key).expect("Key not found.");
         Ok(
-            Config {
+            Self {
                 api_key: result,
             }
         )

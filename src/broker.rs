@@ -10,25 +10,23 @@
 
 use rand_distr::{Normal, Uniform, Distribution};
 use rand;
-use crate::order::{Order, Confirm, OrderResult};
-use crate::data_loading::{AlphaVantage, Quote};
+use crate::order::{Order, Confirm, OrderResult, Quote};
+use crate::data_loading::AlphaVantage;
 use std::io::Result;
 
 pub struct Broker {
     trading_costs: f64,
 }
-
 impl Broker {
-
-    pub fn new(trading_costs: f64) -> Broker {
-        Broker {
+    pub fn new(trading_costs: f64) -> Self {
+        Self {
             trading_costs,
         }
     }
 
-    pub fn quote(&self, ticker: &String) -> Result<Quote> {
+    pub fn quote(&self, ticker: String, quantity: i64) -> Result<Quote> {
         let av = AlphaVantage;
-        let quote = av.get_quote(ticker)
+        let quote = av.get_quote(ticker.clone(), quantity)
             .unwrap();
 
         Ok(quote)
@@ -51,11 +49,9 @@ impl Broker {
         Ok(slippage)
     }
 
-    fn executed_price(&self, quote: Quote) -> Result<f64> {
-        let random_noise = match self.market_noise(0.0, 1.0) {
-            Ok(noise) => noise,
-            Err(error) => panic!("Error in computing market noise: {:?}", error),
-        };
+    fn executed_price(&self, quote: &Quote) -> Result<f64> {
+        let random_noise = self.market_noise(0.0, 1.0)
+            .expect("Error in computing market noise");
         let executed_price = quote.quote + random_noise;
 
         Ok(executed_price)
@@ -63,10 +59,8 @@ impl Broker {
 
     fn executed_quantity(&self, quantity_desired: i64) -> Result<i64> {
         let max_slippage = (0.25 * (quantity_desired as f64)) as i64;
-        let slippage = match self.market_slippage(max_slippage) {
-            Ok(slippage) => slippage,
-            Err(error) => panic!("Error in computation of slippage: {:?}", error),
-        };
+        let slippage = self.market_slippage(max_slippage)
+            .expect("Error in computation of slippage.");
 
         // If quantity desired is negative, need to add the slippage to the order.
         // Otherwise, subtract it.
@@ -82,19 +76,15 @@ impl Broker {
         Ok(executed_qty)
     }
 
-    fn send_order(&self, ticker: String, quoted_price: f64, quantity: i64) -> Result<OrderResult> {
+    fn send_order(&self, quote: Quote) -> Result<OrderResult> {
         // Unpack executed price and quantity.
-        let amount_filled = match self.executed_quantity(quantity) {
-            Ok(amount) => amount,
-            Err(error) => panic!("Error in executed quantity: {:?}.", error),
-        };
-        let price_filled = match self.executed_price(quoted_price) {
-            Ok(price) => price,
-            Err(error) => panic!("Error in executed price: {:?}.", error),
-        };
+        let amount_filled = self.executed_quantity(quote.quantity)
+            .expect("Error in executed quantity");
+        let price_filled = self.executed_price(&quote)
+            .expect("Error in executed price");
 
         let result = OrderResult::new(
-            ticker,
+            quote.ticker.clone(),
             amount_filled,
             price_filled,
         );
@@ -107,23 +97,20 @@ impl Broker {
         let trading_costs = self.trading_costs * (order.quantity as f64);
 
         // Get a quote for the ticker.
-        let quote = match self.quote(&order.ticker) {
-            Ok(quote) => quote,
-            Err(error) => panic!("Error in quote generation: {:?}", error),
-        };
+        let quote = self.quote(order.ticker.clone(), order.quantity)
+            .expect("Error in quote generation");
+        println!("{}", quote);
 
         // execute at given quote.
-        let result = match self.send_order(
-            order.ticker.clone(),
-            quote,
-            order.quantity
-        ) {
+        let result = match self.send_order(quote) {
             Ok(result) => result,
             Err(error) => panic!("Error in sending order: {:?}", error),
         };
+        println!("{}", result);
 
         let confirm = Confirm::new(
-            order.ticker,
+            order.ticker.clone(),
+            result.timestamp,
             result.filled_quantity,
             result.filled_price,
             trading_costs,
