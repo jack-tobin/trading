@@ -102,10 +102,8 @@ impl Broker {
         println!("{}", quote);
 
         // execute at given quote.
-        let result = match self.send_order(quote) {
-            Ok(result) => result,
-            Err(error) => panic!("Error in sending order: {:?}", error),
-        };
+        let result = self.send_order(quote)
+            .expect("Error in sending order");
         println!("{}", result);
 
         let confirm = Confirm::new(

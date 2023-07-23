@@ -8,7 +8,6 @@ use std::io::Result;
 use polars::series::Series;
 use crate::order::Quote;
 
-#[derive(Debug)]
 pub enum Interval {
     Minute,
     FiveMinute,
