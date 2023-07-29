@@ -1,68 +1,38 @@
 /// Trading strategies.
 
 use polars::series::Series;
-use std::io::Result;
-use polars::prelude::ChunkAgg;
-use polars::prelude::TakeRandom;
+use polars::prelude::*;
 
 use crate::order::Order;
+use crate::portfolio::Portfolio;
 
 pub trait Strategy {
-
-    fn set_position(&self, position: isize) {
-        self.position = position;
-    }
-
-    fn on_data(&self, data: Series) -> Option<Order>;
-
-    fn is_long(&self) -> Result<bool> {
-        if self.position > 0 {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn is_short(&self) -> Result<bool> {
-        if self.position < 0 {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn is_invested(&self) -> Result<bool> {
-        if self.position != 0 {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
+    fn on_data(&self, data: Series, portfolio: &Portfolio) -> Option<Order>;
 }
 
 pub struct MACrossoverStrategy {
-    window: usize,
+    window: u64,
+    long_quantity: i64,
+    short_quantity: i64,
 }
 impl MACrossoverStrategy {
-    pub fn new(window: usize) -> Self {
-        let position: i64 = 0;
+    pub fn new(window: u64, long_quantity: i64, short_quantity: i64) -> Self {
         Self {
             window,
+            long_quantity,
+            short_quantity,
         }
-    }
-
-    pub fn get_window(&self) -> Option<usize> {
-        Some(self.window)
     }
 }
 impl Strategy for MACrossoverStrategy {
-    fn on_data(&self, data: Series) -> Option<Order> {
+    fn on_data(&self, data: Series, portfolio: &Portfolio) -> Option<Order> {
         // MA crossover strategy strategy
         // If price is greater than avg price over a window, buy or maintain
         // If price is lower than avg price over a window, sell or maintain.
+        // Otherwise close all positions.
 
         let n = data.len();
-        let data_subset = data.tail(self.get_window());
+        let data_subset = data.tail(Some(self.window.try_into().unwrap()));
 
         let subset_mean = data_subset
             .f64()
@@ -78,13 +48,14 @@ impl Strategy for MACrossoverStrategy {
 
         let order: Order;
 
-        let is_invested = self.is_invested().unwrap();
-        if (last_price > subset_mean) & !is_invested {
-            order = Order::new("AAPL".to_string(), 100);
+        let is_long = portfolio.is_long().unwrap();
+        let is_short = portfolio.is_short().unwrap();
+        if (last_price > subset_mean) & !is_long {
+            order = Order::new(data.name().to_string(), self.long_quantity);
             Some(order)
         }
-        else if (last_price < subset_mean) & !is_invested {
-            order = Order::new("AAPL".to_string(), -100);
+        else if (last_price < subset_mean) & !is_short {
+            order = Order::new(data.name().to_string(), self.short_quantity);
             Some(order)
         }
         else {

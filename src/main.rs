@@ -10,37 +10,36 @@ mod config;
 mod data_loading;
 mod backtest;
 mod strategy;
-
-use broker::Broker;
-use order::{Order, Confirm};
+mod portfolio;
 
 fn main() {
-    // Establish our broker with $0.05 trading costs.
-    let broker: Broker = Broker::new(0.05);
-
-    // Make an order for +100 AAPL shares.
-    let ticker: String = "AAPL".to_string();
-    let shares = 100;
-    let order = Order::new(ticker.clone(), shares);
-
-    // Instruct broker to execute my order.
-    let confirm: Confirm = broker.execute(order)
-        .expect("Error in execution.");
-    println!("{}", confirm);
+    // Defining a strategy.
 
     // Load in a time series of data for our strategy.
     let loader = data_loading::AlphaVantage;
     let interval = data_loading::Interval::Day;
-    let data = loader._get_timeseries(ticker.clone(), interval)
+    let data = loader.get_timeseries("AAPL".to_string(), interval)
         .expect("Error downloading data.");
 
+    // Setup our portfolio
+    let init_capital = 1000000;
+    let portfolio = portfolio::Portfolio::new(init_capital);
+
     // Define a strategy and a backtest for that strategy.
-    const MA_WINDOW: usize = 30;
-    let strategy = strategy::MACrossoverStrategy::new(MA_WINDOW);
-    let backtest = backtest::Backtest::new(MA_WINDOW);
+    let ma_window: u64 = 90;
+    let long_quantity: i64 = 100;
+    let short_quantity: i64 = -100;
+    let strategy = strategy::MACrossoverStrategy::new(
+        ma_window,
+        long_quantity,
+        short_quantity
+    );
+    let mut backtest = backtest::Backtest::new(ma_window, portfolio);
 
     // Run the backtest.
-    let backtest_result = backtest.run(&strategy);
-    println!("{}", backtest_result);
+    let (pnl, n_trades) = backtest.run(&strategy, &data)
+        .expect("Miscellaneous error in backtest.");
+
+    println!("PnL = {}; N Trades = {}", pnl, n_trades);
 
 }

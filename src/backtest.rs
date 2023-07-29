@@ -1,6 +1,9 @@
 /// Backtesting
 
 use crate::strategy::Strategy;
+use crate::portfolio::Portfolio;
+use crate::order::Order;
+use crate::broker::Broker;
 use polars::series::Series;
 use std::fmt;
 use std::io::Result;
@@ -9,48 +12,67 @@ use std::io::Result;
 pub struct BacktestResult {
     pnl: f64,
     n_trades: usize,
-    drawdown: f64,
 }
 impl fmt::Display for BacktestResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Backtest Result:\nPnL = {}\nNum. Trades = {}\nMax Drawdown = {}",
+            "Backtest Result:\nPnL = {}\nNum. Trades = {}",
             self.pnl,
             self.n_trades,
-            self.drawdown,
         )
     }
 }
 
 pub struct Backtest {
-    warm_up_periods: usize
+    warm_up_periods: u64,
+    portfolio: Portfolio,
+    pnl: f64,
+    n_trades: i64,
 }
 impl Backtest {
-    pub fn new(warm_up_periods: usize) -> Self {
+    pub fn new(warm_up_periods: u64, portfolio: Portfolio) -> Self {
+        let pnl = 0.0;
+        let n_trades = 0;
         Self {
             warm_up_periods,
+            portfolio,
+            pnl,
+            n_trades,
         }
     }
 
-    pub fn load_data(&self, data: Series) {
-        ()
+    fn process_order(&mut self, order: Order) {
+        // Increment number of trades.
+        self.n_trades += 1;
+
+        // Execute the order.
+        let broker = Broker::new(0.50);
+        let order_result = broker.execute(order)
+            .expect("Error in execution");
+        println!("Traded {} shares for {}", order_result.quantity_filled, order_result.executed_price);
+
+        // Compute PnLs.
+        // Portfolio is LIFO. If we buy 100 shares for $10, our investment is $1000
+        // if we then sell 50 shares for $12, our PnL is 50 (12 - 10)
+        // if we then buy 25 shares for $15, then sell 30 shares for $20, our PnL
+        // on that sale is 25 * (20-15) + 5 * (20 - 10)
+
+        // Adjust portfolio position.
+        self.portfolio.position += order_result.quantity_filled;
     }
 
-    pub fn run(&self, strategy: &impl Strategy) -> Result<BacktestResult> {
-
-        let pnl: f64 = 0.0;
-        let n_trades: usize = 35;
-        let drawdown: f64 = -0.10;
-
-
-
-        let result = BacktestResult {
-            pnl,
-            n_trades,
-            drawdown
-        };
-        Ok(result)
+    pub fn run(&mut self, strategy: &impl Strategy, data: &Series) -> Result<(f64, i64)> {
+        // For every date, get order.
+        let n = data.len().try_into().unwrap();
+        for i in self.warm_up_periods..n {
+            let data_slice = data.head(Some(i.try_into().unwrap()));
+            match strategy.on_data(data_slice, &self.portfolio) {
+                Some(order) => self.process_order(order),
+                None => println!("Nothing to do."),
+            }
+        }
+        Ok((self.pnl, self.n_trades))
     }
 }
 

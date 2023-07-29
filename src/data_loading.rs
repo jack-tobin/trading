@@ -76,7 +76,7 @@ impl AlphaVantage {
         Ok(quote)
     }
 
-    pub fn _get_timeseries(
+    pub fn get_timeseries(
         &self,
         ticker: String,
         interval: Interval,
