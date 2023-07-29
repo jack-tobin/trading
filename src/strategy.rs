@@ -31,8 +31,8 @@ pub trait Strategy {
         }
     }
 
-    fn is_uninvested(&self) -> Result<bool> {
-        if self.position == 0 {
+    fn is_invested(&self) -> Result<bool> {
+        if self.position != 0 {
             Ok(true)
         } else {
             Ok(false)
@@ -77,11 +77,13 @@ impl Strategy for MACrossoverStrategy {
             .expect("Unable to get last item.");
 
         let order: Order;
-        if (last_price > subset_mean) & !self.is_uninvested().unwrap() {
+
+        let is_invested = self.is_invested().unwrap();
+        if (last_price > subset_mean) & !is_invested {
             order = Order::new("AAPL".to_string(), 100);
             Some(order)
         }
-        else if (last_price < subset_mean) & !self.is_uninvested().unwrap() {
+        else if (last_price < subset_mean) & !is_invested {
             order = Order::new("AAPL".to_string(), -100);
             Some(order)
         }
