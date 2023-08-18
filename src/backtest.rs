@@ -4,10 +4,9 @@ use crate::strategy::Strategy;
 use crate::portfolio::Portfolio;
 use crate::order::Order;
 use crate::broker::Broker;
+use crate::errors::*;
 use polars::series::Series;
 use std::fmt;
-use std::io::Result;
-
 
 pub struct BacktestResult {
     pnl: f64,
@@ -43,13 +42,10 @@ impl Backtest {
     }
 
     fn process_order(&mut self, order: Order) {
-        // Increment number of trades.
         self.n_trades += 1;
 
-        // Execute the order.
         let broker = Broker::new(0.50);
-        let order_result = broker.execute(order)
-            .expect("Error in execution");
+        let order_result = broker.execute(order)?;
         println!("Traded {} shares for {}", order_result.quantity_filled, order_result.executed_price);
 
         // Compute PnLs.
@@ -58,15 +54,15 @@ impl Backtest {
         // if we then buy 25 shares for $15, then sell 30 shares for $20, our PnL
         // on that sale is 25 * (20-15) + 5 * (20 - 10)
 
-        // Adjust portfolio position.
         self.portfolio.position += order_result.quantity_filled;
     }
 
-    pub fn run(&mut self, strategy: &impl Strategy, data: &Series) -> Result<(f64, i64)> {
-        // For every date, get order.
-        let n = data.len().try_into().unwrap();
+    pub fn run(&mut self, strategy: &impl Strategy, data: &Series) -> Result<(f64, i64), BacktestError> {
+        let n = data.len().try_into()?;
+
         for i in self.warm_up_periods..n {
-            let data_slice = data.head(Some(i.try_into().unwrap()));
+            let data_slice = data.head(Some(i.try_into()?));
+
             match strategy.on_data(data_slice, &self.portfolio) {
                 Some(order) => self.process_order(order),
                 None => println!("Nothing to do."),

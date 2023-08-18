@@ -32,24 +32,20 @@ impl Strategy for MACrossoverStrategy {
         // Otherwise close all positions.
 
         let n = data.len();
-        let data_subset = data.tail(Some(self.window.try_into().unwrap()));
+        let data_subset = data.tail(Some(self.window.try_into()?));
 
         let subset_mean = data_subset
-            .f64()
-            .expect("Unrecognized type")
-            .mean()
-            .expect("Error getting mean.");
+            .f64()?
+            .mean()?;
 
         let last_price = data_subset
-            .f64()
-            .expect("Unrecognized type.")
-            .get(n - 1)
-            .expect("Unable to get last item.");
+            .f64()?
+            .get(n - 1)?;
 
         let order: Order;
 
-        let is_long = portfolio.is_long().unwrap();
-        let is_short = portfolio.is_short().unwrap();
+        let is_long = portfolio.is_long()?;
+        let is_short = portfolio.is_short()?;
         if (last_price > subset_mean) & !is_long {
             order = Order::new(data.name().to_string(), self.long_quantity);
             Some(order)

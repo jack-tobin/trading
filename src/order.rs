@@ -1,9 +1,3 @@
-///
-/// Orders.
-///
-/// This contains various objects related to orders, including an Order
-/// struct and a Confirm struct.
-///
 
 use std::fmt;
 use chrono::{DateTime, Utc};

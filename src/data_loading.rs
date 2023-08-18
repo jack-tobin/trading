@@ -3,10 +3,10 @@
 ///
 
 use crate::config::Config;
-use std::io::Result;
 use polars::series::Series;
 use crate::order::Quote;
 use reqwest::blocking::get;
+use crate::errors::*;
 
 pub enum Interval {
     Minute,
@@ -23,18 +23,15 @@ pub struct AlphaVantage;
 impl AlphaVantage {
     const BASE_URL: &str = "https://www.alphavantage.co/query";
 
-    // Get API key
     // Assumes that the api key is stored as an environment variable called AV_KEY
-    fn get_api_key(&self) -> Result<String> {
-        let config = Config::get("AV_KEY".to_string())
-            .expect("Environment variable AV_KEY not found");
+    fn get_api_key(&self) -> Result<String, DataLoaderError> {
+        let config = Config::get("AV_KEY".to_string())?;
 
         Ok(config.api_key)
     }
 
-    fn get_url(&self, function: String, symbol: String) -> Result<String> {
-        let api_key = self.get_api_key()
-            .expect("Error generating API key.");
+    fn get_url(&self, function: String, symbol: String) -> Result<String, DataLoaderError> {
+        let api_key = self.get_api_key()?;
 
         let url_suffix = format!(
             "?function={}&symbol={}&apikey={}",
@@ -47,25 +44,15 @@ impl AlphaVantage {
         Ok(url)
     }
 
-    // Get a quote for a ticker.
-    pub fn get_quote(&self, ticker: String, quantity: i64) -> Result<Quote> {
-        // Build URL.
+    pub fn get_quote(&self, ticker: String, quantity: i64) -> Result<Quote, DataLoaderError> {
         let function = "GLOBAL_QUOTE".to_string();
-        let url = self.get_url(function, ticker.clone())
-            .expect("Error generating URL.");
+        let url = self.get_url(function, ticker.clone())?;
 
-        // Make request.
-        let response = get(url)
-            .unwrap()
-            .json::<serde_json::Value>()
-            .expect("Error in coercing response to json.");
+        let response = get(url)?.json::<serde_json::Value>()?;
 
-        // Extract price from json response.
         let price = &response["Global Quote"]["05. price"];
-        let price_string: String = serde_json::from_value(price.clone())
-            .expect("Error in parsing price into a String.");
-        let parsed = price_string.parse::<f64>()
-            .expect("Unable to parse string into f64.");
+        let price_string: String = serde_json::from_value(price.clone())?;
+        let parsed = price_string.parse::<f64>()?;
 
         let quote = Quote::new(
             ticker.clone(),
@@ -80,8 +67,7 @@ impl AlphaVantage {
         &self,
         ticker: String,
         interval: Interval,
-    ) -> Result<Series> {
-        // Determine function based on frequency:
+    ) -> Result<Series, DataLoaderError> {
         let function = match interval {
             Interval::Minute => "TIME_SERIES_INTRADAY&interval=1min",
             Interval::FiveMinute => "TIME_SERIES_INTRADAY&interval=5min",
@@ -93,18 +79,13 @@ impl AlphaVantage {
             Interval::Month => "TIME_SERIES_MONTHLY",
         };
 
-        let url = self.get_url(function.to_string(), ticker.clone())
-            .expect("Error in generating URL.");
+        let url = self.get_url(function.to_string(), ticker.clone())?;
 
-        // Make request.
-        let response = get(url)
-            .unwrap()
-            .json::<serde_json::Value>()
-            .expect("Error in coercing response to json.");
+        let response = get(url)?.json::<serde_json::Value>()?;
 
         println!("{}", response);
 
-        // Coerce json response to a polars series.
+        // TODO: Coerce json response to a polars series.
 
         let series = [1, 2, 3].iter().collect();
         Ok(series)

@@ -8,11 +8,12 @@
 /// order filled, at what price, the timestamp, etc.
 ///
 
-use rand_distr::{Normal, Uniform, Distribution};
+use rand_distr::{Normal, Uniform, Distribution, NormalError};
 use rand;
 use crate::order::{Order, Confirm, OrderResult, Quote};
 use crate::data_loading::AlphaVantage;
-use std::io::Result;
+use crate::errors::*;
+
 
 pub struct Broker {
     trading_costs: f64,
@@ -24,43 +25,36 @@ impl Broker {
         }
     }
 
-    pub fn quote(&self, ticker: String, quantity: i64) -> Result<Quote> {
+    pub fn quote(&self, ticker: String, quantity: i64) -> Result<Quote, DataLoaderError> {
         let av = AlphaVantage;
-        let quote = av.get_quote(ticker.clone(), quantity)
-            .unwrap();
-
+        let quote = av.get_quote(ticker.clone(), quantity)?;
         Ok(quote)
     }
 
-    fn market_noise(&self, mean: f64, variance: f64) -> Result<f64> {
+    fn market_noise(&self, mean: f64, variance: f64) -> Result<f64, NormalError> {
         let std_dev: f64 = variance.powf(1.0/2.0);
-        let normal = Normal::new(mean, std_dev)
-            .unwrap();
-
+        let normal = Normal::new(mean, std_dev)?;
         let noise = normal.sample(&mut rand::thread_rng());
-
         Ok(noise)
     }
 
-    fn market_slippage(&self, max_slippage: i64) -> Result<i64> {
+    fn market_slippage(&self, max_slippage: i64) -> Result<i64, BrokerError> {
         let uniform = Uniform::new(0, max_slippage);
         let slippage = uniform.sample(&mut rand::thread_rng());
 
         Ok(slippage)
     }
 
-    fn executed_price(&self, quote: &Quote) -> Result<f64> {
-        let random_noise = self.market_noise(0.0, 1.0)
-            .expect("Error in computing market noise");
+    fn executed_price(&self, quote: &Quote) -> Result<f64, Box<dyn std::error::Error>> {
+        let random_noise = self.market_noise(0.0, 1.0)?;
         let executed_price = quote.quote + random_noise;
 
         Ok(executed_price)
     }
 
-    fn executed_quantity(&self, quantity_desired: i64) -> Result<i64> {
+    fn executed_quantity(&self, quantity_desired: i64) -> Result<i64, BrokerError> {
         let max_slippage = (0.25 * (quantity_desired as f64)) as i64;
-        let slippage = self.market_slippage(max_slippage)
-            .expect("Error in computation of slippage.");
+        let slippage = self.market_slippage(max_slippage)?;
 
         // If quantity desired is negative, need to add the slippage to the order.
         // Otherwise, subtract it.
@@ -76,12 +70,9 @@ impl Broker {
         Ok(executed_qty)
     }
 
-    fn send_order(&self, quote: Quote) -> Result<OrderResult> {
-        // Unpack executed price and quantity.
-        let amount_filled = self.executed_quantity(quote.quantity)
-            .expect("Error in executed quantity");
-        let price_filled = self.executed_price(&quote)
-            .expect("Error in executed price");
+    fn send_order(&self, quote: Quote) -> Result<OrderResult, Box<dyn std::error::Error>> {
+        let amount_filled = self.executed_quantity(quote.quantity)?;
+        let price_filled = self.executed_price(&quote)?;
 
         let result = OrderResult::new(
             quote.ticker.clone(),
@@ -92,19 +83,10 @@ impl Broker {
         Ok(result)
     }
 
-    pub fn execute(&self, order: Order) -> Result<Confirm> {
-        // Compute dollar trading costs.
+    pub fn execute(&self, order: Order) -> Result<Confirm, Box<dyn std::error::Error>> {
         let trading_costs = self.trading_costs * (order.quantity as f64);
-
-        // Get a quote for the ticker.
-        let quote = self.quote(order.ticker.clone(), order.quantity)
-            .expect("Error in quote generation");
-        println!("{}", quote);
-
-        // execute at given quote.
-        let result = self.send_order(quote)
-            .expect("Error in sending order");
-        println!("{}", result);
+        let quote = self.quote(order.ticker.clone(), order.quantity)?;
+        let result = self.send_order(quote)?;
 
         let confirm = Confirm::new(
             order.ticker.clone(),
