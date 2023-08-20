@@ -1,6 +1,4 @@
 
-use std::io::Error;
-
 pub struct Trade{
     price: f64,
     quantity: i64,
@@ -25,11 +23,11 @@ impl Portfolio {
         }
     }
 
-    pub fn is_long(&self) -> Result<bool, Error> {
-        Ok(self.position > 0)
+    pub fn is_long(&self) -> bool {
+        self.position > 0
     }
 
-    pub fn is_short(&self) -> Result<bool, Error> {
-        Ok(self.position < 0)
+    pub fn is_short(&self) -> bool {
+        self.position < 0
     }
 }

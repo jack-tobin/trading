@@ -4,13 +4,21 @@ use crate::strategy::Strategy;
 use crate::portfolio::Portfolio;
 use crate::order::Order;
 use crate::broker::Broker;
-use crate::errors::*;
 use polars::series::Series;
 use std::fmt;
+use std::error::Error;
 
 pub struct BacktestResult {
     pnl: f64,
-    n_trades: usize,
+    n_trades: isize,
+}
+impl BacktestResult {
+    pub fn new(pnl: f64, n_trades: isize) -> Self {
+        Self {
+            pnl,
+            n_trades,
+        }
+    }
 }
 impl fmt::Display for BacktestResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -27,7 +35,7 @@ pub struct Backtest {
     warm_up_periods: u64,
     portfolio: Portfolio,
     pnl: f64,
-    n_trades: i64,
+    n_trades: isize,
 }
 impl Backtest {
     pub fn new(warm_up_periods: u64, portfolio: Portfolio) -> Self {
@@ -41,7 +49,7 @@ impl Backtest {
         }
     }
 
-    fn process_order(&mut self, order: Order) {
+    fn process_order(&mut self, order: Order) -> Result<(), Box<dyn Error>>{
         self.n_trades += 1;
 
         let broker = Broker::new(0.50);
@@ -55,20 +63,30 @@ impl Backtest {
         // on that sale is 25 * (20-15) + 5 * (20 - 10)
 
         self.portfolio.position += order_result.quantity_filled;
+
+        Ok(())
     }
 
-    pub fn run(&mut self, strategy: &impl Strategy, data: &Series) -> Result<(f64, i64), BacktestError> {
+    pub fn run(
+        &mut self,
+        strategy: &impl Strategy,
+        data: &Series,
+    ) -> Result<BacktestResult, Box<dyn Error>> {
         let n = data.len().try_into()?;
 
         for i in self.warm_up_periods..n {
             let data_slice = data.head(Some(i.try_into()?));
 
             match strategy.on_data(data_slice, &self.portfolio) {
-                Some(order) => self.process_order(order),
+                Some(order) => self.process_order(order)?,
                 None => println!("Nothing to do."),
             }
         }
-        Ok((self.pnl, self.n_trades))
+        let result = BacktestResult::new(
+            self.pnl,
+            self.n_trades,
+        );
+        Ok(result)
     }
 }
 

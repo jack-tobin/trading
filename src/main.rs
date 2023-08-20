@@ -11,7 +11,6 @@ mod data_loading;
 mod backtest;
 mod strategy;
 mod portfolio;
-mod errors;
 
 fn main() {
     let loader = data_loading::AlphaVantage;
@@ -32,9 +31,9 @@ fn main() {
     );
     let mut backtest = backtest::Backtest::new(ma_window, portfolio);
 
-    let (pnl, n_trades) = backtest.run(&strategy, &data)
+    let result = backtest.run(&strategy, &data)
         .expect("Backtesting error.");
 
-    println!("PnL = {}; N Trades = {}", pnl, n_trades);
+    println!("{}", result);
 
 }

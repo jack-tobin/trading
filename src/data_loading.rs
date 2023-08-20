@@ -6,7 +6,7 @@ use crate::config::Config;
 use polars::series::Series;
 use crate::order::Quote;
 use reqwest::blocking::get;
-use crate::errors::*;
+use std::error::Error;
 
 pub enum Interval {
     Minute,
@@ -24,13 +24,17 @@ impl AlphaVantage {
     const BASE_URL: &str = "https://www.alphavantage.co/query";
 
     // Assumes that the api key is stored as an environment variable called AV_KEY
-    fn get_api_key(&self) -> Result<String, DataLoaderError> {
+    fn get_api_key(&self) -> Result<String, Box<dyn Error>> {
         let config = Config::get("AV_KEY".to_string())?;
 
         Ok(config.api_key)
     }
 
-    fn get_url(&self, function: String, symbol: String) -> Result<String, DataLoaderError> {
+    fn get_url(
+        &self,
+        function: String,
+        symbol: String,
+    ) -> Result<String, Box<dyn Error>> {
         let api_key = self.get_api_key()?;
 
         let url_suffix = format!(
@@ -44,7 +48,11 @@ impl AlphaVantage {
         Ok(url)
     }
 
-    pub fn get_quote(&self, ticker: String, quantity: i64) -> Result<Quote, DataLoaderError> {
+    pub fn get_quote(
+        &self,
+        ticker: String,
+        quantity: i64,
+    ) -> Result<Quote, Box<dyn Error>> {
         let function = "GLOBAL_QUOTE".to_string();
         let url = self.get_url(function, ticker.clone())?;
 
@@ -67,7 +75,7 @@ impl AlphaVantage {
         &self,
         ticker: String,
         interval: Interval,
-    ) -> Result<Series, DataLoaderError> {
+    ) -> Result<Series, Box<dyn Error>> {
         let function = match interval {
             Interval::Minute => "TIME_SERIES_INTRADAY&interval=1min",
             Interval::FiveMinute => "TIME_SERIES_INTRADAY&interval=5min",

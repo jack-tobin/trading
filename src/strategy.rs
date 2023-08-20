@@ -25,27 +25,32 @@ impl MACrossoverStrategy {
     }
 }
 impl Strategy for MACrossoverStrategy {
-    fn on_data(&self, data: Series, portfolio: &Portfolio) -> Option<Order> {
+
+    fn on_data(
+        &self,
+        data: Series,
+        portfolio: &Portfolio,
+    ) -> Option<Order> {
         // MA crossover strategy strategy
         // If price is greater than avg price over a window, buy or maintain
         // If price is lower than avg price over a window, sell or maintain.
         // Otherwise close all positions.
 
         let n = data.len();
-        let data_subset = data.tail(Some(self.window.try_into()?));
+        let data_subset = data.tail(Some(self.window.try_into().ok()?));
 
         let subset_mean = data_subset
-            .f64()?
+            .f64().ok()?
             .mean()?;
 
         let last_price = data_subset
-            .f64()?
+            .f64().ok()?
             .get(n - 1)?;
 
         let order: Order;
 
-        let is_long = portfolio.is_long()?;
-        let is_short = portfolio.is_short()?;
+        let is_long = portfolio.is_long();
+        let is_short = portfolio.is_short();
         if (last_price > subset_mean) & !is_long {
             order = Order::new(data.name().to_string(), self.long_quantity);
             Some(order)

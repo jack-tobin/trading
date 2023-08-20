@@ -1,14 +1,14 @@
 
 
 use std::env;
-use crate::errors::*;
+use std::error::Error;
 
 pub struct Config {
     pub api_key: String,
 }
 
 impl Config {
-    pub fn get(key: String) -> Result<Self, ConfigError> {
+    pub fn get(key: String) -> Result<Self, Box<dyn Error>> {
         let result = env::var(key)?;
         Ok(
             Self {
