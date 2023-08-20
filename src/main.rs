@@ -12,28 +12,31 @@ mod backtest;
 mod strategy;
 mod portfolio;
 
+use crate::data_loading::*;
+use crate::portfolio::*;
+use crate::strategy::*;
+use crate::backtest::*;
+
 fn main() {
-    let loader = data_loading::AlphaVantage;
-    let interval = data_loading::Interval::Day;
-    let data = loader.get_timeseries("AAPL".to_string(), interval)
+    let loader = AlphaVantage;
+    let data = loader.get_timeseries("AAPL".to_string(), Interval::Day)
         .expect("Unable to generate data.");
+    // println!("{}", data);
 
-    let init_capital = 1000000;
-    let portfolio = portfolio::Portfolio::new(init_capital);
+    let portfolio = Portfolio::new(1_000_000);
 
-    let ma_window: u64 = 90;
-    let long_quantity: i64 = 100;
-    let short_quantity: i64 = -100;
-    let strategy = strategy::MACrossoverStrategy::new(
-        ma_window,
-        long_quantity,
-        short_quantity
+    let strategy = MACrossoverStrategy::new(
+        90,
+        100,
+        -100
     );
-    let mut backtest = backtest::Backtest::new(ma_window, portfolio);
+    let mut backtest = Backtest::new(90, portfolio);
 
-    let result = backtest.run(&strategy, &data)
+    let data_col = data.column("AAPL").ok()
+        .expect("No column exists in df.");
+
+    let result = backtest.run(&strategy, data_col)
         .expect("Backtesting error.");
 
     println!("{}", result);
-
 }

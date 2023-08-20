@@ -1,5 +1,5 @@
 
-pub struct Trade{
+pub struct Trade {
     price: f64,
     quantity: i64,
 }

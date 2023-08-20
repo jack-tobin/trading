@@ -32,13 +32,13 @@ impl fmt::Display for BacktestResult {
 }
 
 pub struct Backtest {
-    warm_up_periods: u64,
+    warm_up_periods: usize,
     portfolio: Portfolio,
     pnl: f64,
     n_trades: isize,
 }
 impl Backtest {
-    pub fn new(warm_up_periods: u64, portfolio: Portfolio) -> Self {
+    pub fn new(warm_up_periods: usize, portfolio: Portfolio) -> Self {
         let pnl = 0.0;
         let n_trades = 0;
         Self {
@@ -72,21 +72,23 @@ impl Backtest {
         strategy: &impl Strategy,
         data: &Series,
     ) -> Result<BacktestResult, Box<dyn Error>> {
-        let n = data.len().try_into()?;
+        let n = data.len();
 
         for i in self.warm_up_periods..n {
-            let data_slice = data.head(Some(i.try_into()?));
+            let data_slice = data.head(Some(i));
 
             match strategy.on_data(data_slice, &self.portfolio) {
                 Some(order) => self.process_order(order)?,
                 None => println!("Nothing to do."),
             }
         }
-        let result = BacktestResult::new(
-            self.pnl,
-            self.n_trades,
-        );
-        Ok(result)
+
+        Ok(
+            BacktestResult::new(
+                self.pnl,
+                self.n_trades,
+            )
+        )
     }
 }
 

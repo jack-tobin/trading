@@ -9,6 +9,7 @@ pub struct Config {
 
 impl Config {
     pub fn get(key: String) -> Result<Self, Box<dyn Error>> {
+        // Assumes that the config key is stored as an environment variable.
         let result = env::var(key)?;
         Ok(
             Self {

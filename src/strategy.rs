@@ -1,6 +1,5 @@
 /// Trading strategies.
 
-use polars::series::Series;
 use polars::prelude::*;
 
 use crate::order::Order;
