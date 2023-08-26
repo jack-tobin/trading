@@ -32,6 +32,7 @@ impl Backtest {
         let quote = self.broker.quote(order.ticker.clone(), order.quantity)?;
         let confirm = self.broker.execute(order)?;
         let _ = self.update_portfolio_with_confirm(confirm, quote)?;
+
         Ok(())
     }
 
@@ -63,12 +64,7 @@ impl Backtest {
             }
         }
 
-        Ok(
-            BacktestResult::new(
-                self.pnl,
-                self.n_trades,
-            )
-        )
+        Ok(BacktestResult::new(self.pnl, self.n_trades))
     }
 }
 
