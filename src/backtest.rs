@@ -1,68 +1,49 @@
 /// Backtesting
 
 use crate::strategy::Strategy;
-use crate::portfolio::Portfolio;
-use crate::order::Order;
+use crate::portfolio::{Portfolio, Trade};
+use crate::order::{Order, Confirm};
 use crate::broker::Broker;
+use crate::data_loading::Quote;
 use polars::series::Series;
-use std::fmt;
 use std::error::Error;
+use derive_new::new;
 
+#[allow(dead_code)]
+#[derive(Debug, new)]
 pub struct BacktestResult {
     pnl: f64,
     n_trades: isize,
 }
-impl BacktestResult {
-    pub fn new(pnl: f64, n_trades: isize) -> Self {
-        Self {
-            pnl,
-            n_trades,
-        }
-    }
-}
-impl fmt::Display for BacktestResult {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Backtest Result:\nPnL = {}\nNum. Trades = {}",
-            self.pnl,
-            self.n_trades,
-        )
-    }
-}
 
+#[derive(Debug, new)]
 pub struct Backtest {
     warm_up_periods: usize,
     portfolio: Portfolio,
+    #[new(value = "Broker::new(0.50)")]
+    broker: Broker,
+    #[new(value = "0.0")]
     pnl: f64,
+    #[new(value = "0")]
     n_trades: isize,
 }
 impl Backtest {
-    pub fn new(warm_up_periods: usize, portfolio: Portfolio) -> Self {
-        let pnl = 0.0;
-        let n_trades = 0;
-        Self {
-            warm_up_periods,
-            portfolio,
-            pnl,
-            n_trades,
-        }
-    }
 
     fn process_order(&mut self, order: Order) -> Result<(), Box<dyn Error>>{
+        let quote = self.broker.quote(order.ticker.clone(), order.quantity)?;
+        let confirm = self.broker.execute(order)?;
+        let _ = self.update_portfolio_with_confirm(confirm, quote)?;
+        Ok(())
+    }
+
+    fn update_portfolio_with_confirm(&mut self, confirm: Confirm, quote: Quote) -> Result<(), Box<dyn Error>> {
+        let trade = Trade::new(confirm.executed_price, confirm.quantity_filled);
+
         self.n_trades += 1;
-
-        let broker = Broker::new(0.50);
-        let order_result = broker.execute(order)?;
-        println!("Traded {} shares for {}", order_result.quantity_filled, order_result.executed_price);
-
-        // Compute PnLs.
-        // Portfolio is LIFO. If we buy 100 shares for $10, our investment is $1000
-        // if we then sell 50 shares for $12, our PnL is 50 (12 - 10)
-        // if we then buy 25 shares for $15, then sell 30 shares for $20, our PnL
-        // on that sale is 25 * (20-15) + 5 * (20 - 10)
-
-        self.portfolio.position += order_result.quantity_filled;
+        self.portfolio.trades.push(trade);
+        self.portfolio.position += confirm.quantity_filled;
+        self.portfolio.pnl += (self.portfolio.position as f64) * quote.change;
+        self.portfolio.pnl -= confirm.trading_costs;
 
         Ok(())
     }
@@ -79,7 +60,7 @@ impl Backtest {
 
             match strategy.on_data(data_slice, &self.portfolio) {
                 Some(order) => self.process_order(order)?,
-                None => println!("Nothing to do."),
+                None => (),
             }
         }
 

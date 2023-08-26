@@ -3,7 +3,6 @@
 ///
 
 use crate::config::Config;
-use crate::order::Quote;
 use reqwest::blocking::{Response, get};
 use std::error::Error;
 use std::io::Cursor;
@@ -11,7 +10,21 @@ use polars::prelude::*;
 use serde_json::Value;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use derive_new::new;
 
+
+#[derive(Debug, new)]
+pub struct Quote {
+    pub ticker: String,
+    pub quote: f64,
+    pub change: f64,
+    pub quantity: i64,
+    #[new(value = "Utc::now()")]
+    pub timestamp: DateTime<Utc>,
+}
+
+
+#[allow(dead_code)]
 pub enum Interval {
     Minute,
     FiveMinute,
@@ -65,6 +78,7 @@ struct StockData {
     volume: u64,
 }
 
+#[derive(Debug)]
 pub struct AlphaVantage;
 impl AlphaVantage {
     const BASE_URL: &str = "https://www.alphavantage.co/query";
@@ -74,13 +88,15 @@ impl AlphaVantage {
         let url = self.get_url(function, ticker.clone())?;
         let response = get(url)?;
         let json = self._unpack_response_to_json(response)?;
-        println!("{}", json);
+        println!("{:?}", json);
         let quote = self._unpack_json_quote_data(&json["Global Quote"]["05. price"])?;
+        let change = self._unpack_json_quote_data(&json["Global Quote"]["09. change"])?;
 
         Ok(
             Quote::new(
                 ticker.clone(),
                 quote,
+                change,
                 quantity,
             )
         )

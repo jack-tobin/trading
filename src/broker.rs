@@ -10,21 +10,17 @@
 
 use rand_distr::{Normal, Uniform, Distribution};
 use rand;
-use crate::order::{Order, Confirm, OrderResult, Quote};
-use crate::data_loading::AlphaVantage;
+use crate::order::{Order, Confirm, OrderResult};
+use crate::data_loading::{AlphaVantage, Quote};
 use std::error::Error;
+use derive_new::new;
 
 
+#[derive(Debug, new)]
 pub struct Broker {
     trading_costs: f64,
 }
 impl Broker {
-    pub fn new(trading_costs: f64) -> Self {
-        Self {
-            trading_costs,
-        }
-    }
-
     pub fn quote(&self, ticker: String, quantity: i64) -> Result<Quote, Box<dyn Error>> {
         let av = AlphaVantage;
         let quote = av.get_quote(ticker.clone(), quantity)?;
@@ -87,6 +83,7 @@ impl Broker {
         let trading_costs = self.trading_costs * (order.quantity as f64);
         let quote = self.quote(order.ticker.clone(), order.quantity)?;
         let result = self.send_order(quote)?;
+        println!("Traded {} shares for {}", result.filled_quantity, result.filled_price);
 
         let confirm = Confirm::new(
             order.ticker.clone(),

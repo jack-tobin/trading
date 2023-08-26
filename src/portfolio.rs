@@ -1,33 +1,36 @@
 
+use derive_new::new;
+
+#[derive(Debug, new)]
 pub struct Trade {
-    price: f64,
-    quantity: i64,
+    pub price: f64,
+    pub quantity: i64,
 }
 
+#[derive(Debug, new)]
 pub struct Portfolio {
-    pub initial_capital: isize,
+    pub capital: isize,
+    #[new(value = "0")]
     pub position: i64,
+    #[new(value = "0.0")]
     pub pnl: f64,
+    #[new(value = "vec![]")]
     pub trades: Vec<Trade>,
 }
 impl Portfolio {
-    pub fn new(initial_capital: isize) -> Self {
-        let position: i64 = 0;
-        let pnl: f64 = 0.0;
-        let trades: Vec<Trade> = vec![];
-        Self {
-            initial_capital,
-            position,
-            pnl,
-            trades,
-        }
-    }
-
     pub fn is_long(&self) -> bool {
         self.position > 0
     }
 
     pub fn is_short(&self) -> bool {
         self.position < 0
+    }
+
+    pub fn is_not_long(&self) -> bool {
+        !self.is_long()
+    }
+
+    pub fn is_not_short(&self) -> bool {
+        !self.is_short()
     }
 }
