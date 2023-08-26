@@ -28,7 +28,6 @@ pub struct Backtest {
     n_trades: isize,
 }
 impl Backtest {
-
     fn process_order(&mut self, order: Order) -> Result<(), Box<dyn Error>>{
         let quote = self.broker.quote(order.ticker.clone(), order.quantity)?;
         let confirm = self.broker.execute(order)?;
