@@ -24,7 +24,7 @@ use polars::prelude::*;
 
 #[derive(Debug, new)]
 pub struct MACrossoverStrategy {
-    window: u64,
+    window: u32,
     long_quantity: i64,
     short_quantity: i64,
 }
@@ -66,17 +66,15 @@ fn main() {
 
     let portfolio = Portfolio::new(1_000_000);
 
+    let window: u32 = 90;
     let strategy = MACrossoverStrategy::new(
-        90,
+        window,
         100,
         -100
     );
-    let mut backtest = Backtest::new(90, portfolio);
+    let mut backtest = Backtest::new(window, portfolio);
 
-    let data_col = data.column("AAPL").ok()
-        .expect("No column exists in df.");
-
-    let result = backtest.run(&strategy, data_col)
+    let result = backtest.run(&strategy, data)
         .expect("Backtesting error.");
 
     println!("{:?}", result);

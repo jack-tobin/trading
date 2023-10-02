@@ -4,7 +4,7 @@ use crate::strategy::Strategy;
 use crate::portfolio::{Portfolio, Trade};
 use crate::order::{Order, Confirm};
 use crate::broker::Broker;
-use crate::data_loading::Quote;
+use crate::data_loading::{Quote, DatedStockData};
 use polars::series::Series;
 use std::error::Error;
 use derive_new::new;
@@ -18,7 +18,7 @@ pub struct BacktestResult {
 
 #[derive(Debug, new)]
 pub struct Backtest {
-    warm_up_periods: usize,
+    warm_up_periods: u32,
     portfolio: Portfolio,
     #[new(value = "Broker::new(0.50)")]
     broker: Broker,
@@ -51,12 +51,13 @@ impl Backtest {
     pub fn run(
         &mut self,
         strategy: &impl Strategy,
-        data: &Series,
+        data: &Vec<DatedStockData>,
     ) -> Result<BacktestResult, Box<dyn Error>> {
-        let n = data.len();
+        let n: u32 = data.len().try_into().unwrap();
 
         for i in self.warm_up_periods..n {
-            let data_slice = data.head(Some(i));
+            data[:i];
+            let data_slice = data.head(Some(i.try_into().unwrap()));
 
             match strategy.on_data(data_slice, &self.portfolio) {
                 Some(order) => self.process_order(order)?,

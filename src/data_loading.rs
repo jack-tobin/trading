@@ -6,11 +6,14 @@ use crate::config::Config;
 use reqwest::blocking::{Response, get};
 use std::error::Error;
 use std::io::Cursor;
+use std::fs;
 use polars::prelude::*;
-use serde_json::Value;
+use serde_json::{Value, from_str};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use derive_new::new;
+use std::collections::HashMap;
+use std::io::{BufReader, Read};
 
 
 #[derive(Debug, new)]
@@ -27,9 +30,6 @@ pub struct Quote {
 #[allow(dead_code)]
 pub enum Interval {
     Minute,
-    FiveMinute,
-    FifteenMinute,
-    ThirtyMinute,
     Hour,
     Day,
     Week,
@@ -39,9 +39,9 @@ pub enum Interval {
 #[derive(Deserialize)]
 struct TimeSeriesResponse {
     #[serde(alias = "Meta Data")]
-    meta_data: MetaData,
-    #[serde(alias = "Time Series (Daily)")]
-    ts_data: Vec<DatedStockData>,
+    meta_data: Option<HashMap<String, String>>,
+    #[serde(flatten, alias = "Time Series (Daily)")]  // TODO: dynamize.
+    ts_data: Option<HashMap<String, HashMap<String, StockData>>>,
 }
 
 #[derive(Deserialize)]
@@ -58,10 +58,15 @@ struct MetaData {
     tz: String,
 }
 
-#[derive(Deserialize)]
-struct DatedStockData {
-    date: String,
-    data: StockData,
+
+#[derive(Debug, new)]
+pub struct DatedStockData {
+    pub date: String,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: u64,
 }
 
 #[derive(Deserialize)]
@@ -88,7 +93,6 @@ impl AlphaVantage {
         let url = self.get_url(function, ticker.clone())?;
         let response = get(url)?;
         let json = self._unpack_response_to_json(response)?;
-        println!("{:?}", json);
         let quote = self._unpack_json_quote_data(&json["Global Quote"]["05. price"])?;
         let change = self._unpack_json_quote_data(&json["Global Quote"]["09. change"])?;
 
@@ -129,22 +133,22 @@ impl AlphaVantage {
         Ok(response.json::<Value>()?)
     }
 
-    pub fn get_timeseries(&self, ticker: String, interval: Interval) -> Result<DataFrame, Box<dyn Error>> {
-        let function = self._api_function_from_interval(interval)?;
-        let url = self.get_url(function, ticker.clone())?;
-        let response = get(url)?
-            .json::<TimeSeriesResponse>()?;
+    pub fn get_timeseries(&self, ticker: String, interval: Interval) -> Result<Vec<DatedStockData>, Box<dyn Error>> {
+        // Temp: read and pare json output from file.
+        let response = fs::read_to_string("example_json_output.json")?;
 
-        let results = self.unpack_ts_data(response.ts_data)?;
-        Ok(results)
+        // let function = self._api_function_from_interval(interval)?;
+        // let url = self.get_url(function, ticker.clone())?;
+        // let response = get(url)?
+        //     .text()?;
+
+        let timeseries: TimeSeriesResponse = serde_json::from_str(response.as_str())?;
+        self._unpack_ts_data(timeseries, interval)
     }
 
     fn _api_function_from_interval(&self, interval: Interval) -> Result<String, Box<dyn Error>> {
         let function = match interval {
             Interval::Minute => "TIME_SERIES_INTRADAY&interval=1min",
-            Interval::FiveMinute => "TIME_SERIES_INTRADAY&interval=5min",
-            Interval::FifteenMinute => "TIME_SERIES_INTRADAY&interval=15min",
-            Interval::ThirtyMinute => "TIME_SERIES_INTRADAY&interval=30min",
             Interval::Hour => "TIME_SERIES_INTRADAY&interval=60min",
             Interval::Day => "TIME_SERIES_DAILY",
             Interval::Week => "TIME_SERIES_WEEKLY",
@@ -153,32 +157,39 @@ impl AlphaVantage {
         Ok(function.to_string())
     }
 
-    fn unpack_ts_data(&self, ts_data: Vec<DatedStockData>) -> Result<DataFrame, Box<dyn Error>> {
+    fn _unpack_ts_data(&self, ts: TimeSeriesResponse, interval: Interval) -> Result<Vec<DatedStockData>, Box<dyn Error>> {
+        let ts_key = self._ts_key_from_interval(interval)?;
 
-        let mut dates: Vec<String> = vec![];
-        let mut opens: Vec<f64> = vec![];
-        let mut highs: Vec<f64> = vec![];
-        let mut lows: Vec<f64> = vec![];
-        let mut closes: Vec<f64> = vec![];
-        let mut volumes: Vec<u64> = vec![];
-        for data in ts_data.iter() {
-            dates.push(data.date.clone());
-            opens.push(data.data.open);
-            highs.push(data.data.high);
-            lows.push(data.data.low);
-            closes.push(data.data.close);
-            volumes.push(data.data.volume);
+        let ts_map = ts.ts_data
+        .expect("Timeseries object not found.");
+        let ts = ts_map.get(ts_key.as_str())
+            .expect("Time series object not found.");
+
+        let mut rows: Vec<DatedStockData> = vec![];
+        for (date, stock_data) in ts.iter() {
+            let dated_stockdata = DatedStockData::new(
+                date.clone(),
+                stock_data.open,
+                stock_data.high,
+                stock_data.low,
+                stock_data.close,
+            stock_data.volume,
+            );
+            rows.push(dated_stockdata);
         }
 
-        let result_df = df!(
-            "date" => dates,
-            "open" => opens,
-            "high" => highs,
-            "low"  => lows,
-            "close" => closes,
-            "volume" => volumes,
-        )?;
+        // Assemble into series
+        Ok(rows)
+    }
 
-        Ok(result_df)
+    fn _ts_key_from_interval(&self, interval: Interval) -> Result<String, Box<dyn Error>> {
+        let key = match interval {
+            Interval::Minute => "Time Series (1min)",
+            Interval::Hour => "Time Series (60min)",
+            Interval::Day => "Time Series (Daily)",
+            Interval::Week => "Weekly Time Series",
+            Interval::Month => "Monthly Time Series",
+        };
+        Ok(key.to_string())
     }
 }
