@@ -5,7 +5,6 @@ use crate::portfolio::{Portfolio, Trade};
 use crate::order::{Order, Confirm};
 use crate::broker::Broker;
 use crate::data_loading::{Quote, DatedStockData};
-use polars::series::Series;
 use std::error::Error;
 use derive_new::new;
 

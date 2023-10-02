@@ -5,15 +5,12 @@
 use crate::config::Config;
 use reqwest::blocking::{Response, get};
 use std::error::Error;
-use std::io::Cursor;
 use std::fs;
-use polars::prelude::*;
 use serde_json::{Value, from_str};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use derive_new::new;
 use std::collections::HashMap;
-use std::io::{BufReader, Read};
 
 
 #[derive(Debug, new)]
@@ -142,7 +139,7 @@ impl AlphaVantage {
         // let response = get(url)?
         //     .text()?;
 
-        let timeseries: TimeSeriesResponse = serde_json::from_str(response.as_str())?;
+        let timeseries: TimeSeriesResponse = from_str(response.as_str())?;
         self._unpack_ts_data(timeseries, interval)
     }
 
