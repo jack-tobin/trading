@@ -12,14 +12,13 @@ mod backtest;
 mod strategy;
 mod portfolio;
 
-use crate::data_loading::{AlphaVantage, Interval};
+use crate::data_loading::{AlphaVantage, Interval, DatedStockData};
 use crate::portfolio::*;
 use crate::strategy::*;
 use crate::backtest::*;
 use crate::order::Order;
 
 use derive_new::new;
-use polars::prelude::*;
 
 
 #[derive(Debug, new)]
@@ -28,10 +27,12 @@ pub struct MACrossoverStrategy {
     long_quantity: i64,
     short_quantity: i64,
 }
+
+#[allow(implied_bounds_entailment)]
 impl Strategy for MACrossoverStrategy {
     fn on_data(
         &self,
-        data: Series,
+        data: Vec<DatedStockData>,
         portfolio: &Portfolio,
     ) -> Option<Order> {
         // MA crossover strategy strategy

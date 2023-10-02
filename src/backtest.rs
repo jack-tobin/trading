@@ -56,8 +56,7 @@ impl Backtest {
         let n: u32 = data.len().try_into().unwrap();
 
         for i in self.warm_up_periods..n {
-            data[:i];
-            let data_slice = data.head(Some(i.try_into().unwrap()));
+            let data_slice = data.first_chunk(i as usize)?;
 
             match strategy.on_data(data_slice, &self.portfolio) {
                 Some(order) => self.process_order(order)?,

@@ -1,10 +1,9 @@
 /// Trading strategies.
 
-use polars::prelude::*;
-
 use crate::order::Order;
 use crate::portfolio::Portfolio;
+use crate::data_loading::DatedStockData;
 
 pub trait Strategy {
-    fn on_data(&self, data: Series, portfolio: &Portfolio) -> Option<Order>;
+    fn on_data(&self, data: Vec<DatedStockData>, portfolio: &Portfolio) -> Option<Order>;
 }
