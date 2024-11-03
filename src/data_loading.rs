@@ -5,14 +5,14 @@
 use crate::config::Config;
 use reqwest::blocking::{Response, get};
 use std::error::Error;
-use std::fs;
-use serde_json::{Value, from_str};
+use serde_json::Value;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use derive_new::new;
 use std::collections::HashMap;
 
 
+#[allow(dead_code)]
 #[derive(Debug, new)]
 pub struct Quote {
     pub ticker: String,
@@ -21,6 +21,11 @@ pub struct Quote {
     pub quantity: i64,
     #[new(value = "Utc::now()")]
     pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, new)]
+pub struct Metadata {
+    pub symbol: String,
 }
 
 
@@ -33,30 +38,33 @@ pub enum Interval {
     Month,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct TimeSeriesResponse {
-    #[serde(alias = "Meta Data")]
-    meta_data: Option<HashMap<String, String>>,
-    #[serde(flatten, alias = "Time Series (Daily)")]  // TODO: dynamize.
-    ts_data: Option<HashMap<String, HashMap<String, StockData>>>,
+    #[serde(rename = "Meta Data")]
+    meta_data: MetaData,
+    #[serde(rename = "Time Series (Daily)")]
+    ts_data: HashMap<String, StockData>,
 }
 
+
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct MetaData {
-    #[serde(alias = "1. Information")]
+    #[serde(rename = "1. Information")]
     information: String,
-    #[serde(alias = "2. Symbol")]
+    #[serde(rename = "2. Symbol")]
     symbol: String,
-    #[serde(alias = "3. Last Refreshed")]
+    #[serde(rename = "3. Last Refreshed")]
     last_refreshed: String,
-    #[serde(alias = "4. Output Size")]
+    #[serde(rename = "4. Output Size")]
     output_size: String,
-    #[serde(alias = "5. Time Zone")]
+    #[serde(rename = "5. Time Zone")]
     tz: String,
 }
 
-
-#[derive(Debug, new)]
+#[allow(dead_code)]
+#[derive(Debug, new, Clone)]
 pub struct DatedStockData {
     pub date: String,
     pub open: f64,
@@ -68,24 +76,29 @@ pub struct DatedStockData {
 
 #[derive(Deserialize)]
 struct StockData {
-    #[serde(alias = "1. open")]
-    open: f64,
-    #[serde(alias = "2. high")]
-    high: f64,
-    #[serde(alias = "3. low")]
-    low: f64,
-    #[serde(alias = "4. close")]
-    close: f64,
-    #[serde(alias = "5. volume")]
-    volume: u64,
+    #[serde(rename = "1. open")]
+    open: String,
+    #[serde(rename = "2. high")]
+    high: String,
+    #[serde(rename = "3. low")]
+    low: String,
+    #[serde(rename = "4. close")]
+    close: String,
+    #[serde(rename = "5. volume")]
+    volume: String,
 }
 
 #[derive(Debug)]
 pub struct AlphaVantage;
 impl AlphaVantage {
     const BASE_URL: &str = "https://www.alphavantage.co/query";
+    const CONFIG_KEY: &str = "AV_KEY";
 
-    pub fn get_quote(&self, ticker: String, quantity: i64) -> Result<Quote, Box<dyn Error>> {
+    pub fn get_quote(
+        &self,
+        ticker: String,
+        quantity: i64,
+    ) -> Result<Quote, Box<dyn Error>> {
         let function = "GLOBAL_QUOTE".to_string();
         let url = self.get_url(function, ticker.clone())?;
         let response = get(url)?;
@@ -103,8 +116,12 @@ impl AlphaVantage {
         )
     }
 
-    fn get_url(&self, function: String, symbol: String) -> Result<String, Box<dyn Error>> {
-        let api_key = self.get_api_key()?;
+    fn get_url(
+        &self,
+        function: String,
+        symbol: String,
+    ) -> Result<String, Box<dyn Error>> {
+        let api_key = Config::get(Self::CONFIG_KEY.to_string())?;
         let url_suffix = format!(
             "?function={}&symbol={}&apikey={}",
             function,
@@ -116,13 +133,10 @@ impl AlphaVantage {
         Ok(url)
     }
 
-    fn get_api_key(&self) -> Result<String, Box<dyn Error>> {
-        let config = Config::get("AV_KEY".to_string())?;
-        Ok(config.api_key)
-    }
-
     fn _unpack_json_quote_data(&self, value: &Value) -> Result<f64, Box<dyn Error>> {
-        let price_string: String = serde_json::to_string(value)?;
+        let price_string = value.as_str()
+            .ok_or("Failed to convert value to string")?
+            .replace("\"", "");
         Ok(price_string.parse::<f64>()?)
     }
 
@@ -130,20 +144,25 @@ impl AlphaVantage {
         Ok(response.json::<Value>()?)
     }
 
-    pub fn get_timeseries(&self, ticker: String, interval: Interval) -> Result<Vec<DatedStockData>, Box<dyn Error>> {
-        // Temp: read and pare json output from file.
-        let response = fs::read_to_string("example_json_output.json")?;
-
-        // let function = self._api_function_from_interval(interval)?;
-        // let url = self.get_url(function, ticker.clone())?;
-        // let response = get(url)?
-        //     .text()?;
-
-        let timeseries: TimeSeriesResponse = from_str(response.as_str())?;
-        self._unpack_ts_data(timeseries, interval)
+    pub fn get_timeseries(
+        &self,
+        ticker: String,
+        interval: &Interval,
+    ) -> Result<Vec<DatedStockData>, Box<dyn Error>> {
+        let function = self._api_function_from_interval(interval)?;
+        let url = self.get_url(function, ticker.clone())?;
+        let response = get(&url)?;
+        if !response.status().is_success() {
+            return Err(format!("Failed to get timeseries data: {}", response.status()).into());
+        }
+        let timeseries = response.json::<TimeSeriesResponse>()?;
+        self._unpack_ts_data(timeseries)
     }
 
-    fn _api_function_from_interval(&self, interval: Interval) -> Result<String, Box<dyn Error>> {
+    fn _api_function_from_interval(
+        &self,
+        interval: &Interval,
+    ) -> Result<String, Box<dyn Error>> {
         let function = match interval {
             Interval::Minute => "TIME_SERIES_INTRADAY&interval=1min",
             Interval::Hour => "TIME_SERIES_INTRADAY&interval=60min",
@@ -154,32 +173,30 @@ impl AlphaVantage {
         Ok(function.to_string())
     }
 
-    fn _unpack_ts_data(&self, ts: TimeSeriesResponse, interval: Interval) -> Result<Vec<DatedStockData>, Box<dyn Error>> {
-        let ts_key = self._ts_key_from_interval(interval)?;
-
-        let ts_map = ts.ts_data
-        .expect("Timeseries object not found.");
-        let ts = ts_map.get(ts_key.as_str())
-            .expect("Time series object not found.");
-
+    fn _unpack_ts_data(
+        &self,
+        ts: TimeSeriesResponse,
+    ) -> Result<Vec<DatedStockData>, Box<dyn Error>> {
+        let ts_map = ts.ts_data;
         let mut rows: Vec<DatedStockData> = vec![];
-        for (date, stock_data) in ts.iter() {
+        for (date, stock_data) in ts_map.iter() {
             let dated_stockdata = DatedStockData::new(
                 date.clone(),
-                stock_data.open,
-                stock_data.high,
-                stock_data.low,
-                stock_data.close,
-            stock_data.volume,
+                stock_data.open.replace("\"", "").parse::<f64>()?,
+                stock_data.high.replace("\"", "").parse::<f64>()?,
+                stock_data.low.replace("\"", "").parse::<f64>()?,
+                stock_data.close.replace("\"", "").parse::<f64>()?,
+                stock_data.volume.replace("\"", "").parse::<u64>()?,
             );
             rows.push(dated_stockdata);
         }
-
-        // Assemble into series
         Ok(rows)
     }
 
-    fn _ts_key_from_interval(&self, interval: Interval) -> Result<String, Box<dyn Error>> {
+    fn _ts_key_from_interval(
+        &self,
+        interval: &Interval,
+    ) -> Result<String, Box<dyn Error>> {
         let key = match interval {
             Interval::Minute => "Time Series (1min)",
             Interval::Hour => "Time Series (60min)",

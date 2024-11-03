@@ -2,7 +2,7 @@
 use chrono::{DateTime, Utc};
 use derive_new::new;
 
-
+#[allow(dead_code)]
 #[derive(Debug, new)]
 pub struct Order {
     #[new(value = "Utc::now()")]
@@ -11,6 +11,7 @@ pub struct Order {
     pub quantity: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, new)]
 pub struct OrderResult {
     pub ticker: String,
@@ -20,6 +21,7 @@ pub struct OrderResult {
     pub filled_price: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, new)]
 pub struct Confirm {
     pub ticker: String,

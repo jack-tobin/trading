@@ -4,7 +4,7 @@
 /// Jack Tobin
 ///
 /// These objects are designed to receive orders from the strategy/user
-/// and return back trade confirmations that detailt the amount of the
+/// and return back trade confirmations that detail the amount of the
 /// order filled, at what price, the timestamp, etc.
 ///
 
@@ -35,7 +35,8 @@ impl Broker {
     }
 
     fn market_slippage(&self, max_slippage: i64) -> Result<i64, Box<dyn Error>> {
-        let uniform = Uniform::new(0, max_slippage);
+        let abs_max_slippage = max_slippage.abs();
+        let uniform = Uniform::new(0, abs_max_slippage);
         let slippage = uniform.sample(&mut rand::thread_rng());
 
         Ok(slippage)
@@ -49,7 +50,7 @@ impl Broker {
     }
 
     fn executed_quantity(&self, quantity_desired: i64) -> Result<i64, Box<dyn Error>> {
-        let max_slippage = (0.25 * (quantity_desired as f64)) as i64;
+        let max_slippage = (0.25 * (quantity_desired as f64)).abs() as i64;
         let slippage = self.market_slippage(max_slippage)?;
 
         // If quantity desired is negative, need to add the slippage to the order.
@@ -83,7 +84,6 @@ impl Broker {
         let trading_costs = self.trading_costs * (order.quantity as f64);
         let quote = self.quote(order.ticker.clone(), order.quantity)?;
         let result = self.send_order(quote)?;
-        println!("Traded {} shares for {}", result.filled_quantity, result.filled_price);
 
         let confirm = Confirm::new(
             order.ticker.clone(),

@@ -1,12 +1,14 @@
 
 use derive_new::new;
 
+#[allow(dead_code)]
 #[derive(Debug, new)]
 pub struct Trade {
     pub price: f64,
     pub quantity: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, new)]
 pub struct Portfolio {
     pub capital: isize,
