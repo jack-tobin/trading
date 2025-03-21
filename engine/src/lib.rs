@@ -74,7 +74,7 @@ fn run_backtest(
 
 
 #[pymodule]
-fn engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn trading_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_backtest, m)?)?;
     Ok(())
 }

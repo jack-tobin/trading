@@ -2,6 +2,7 @@ engine/target
 .vscode/
 .cargo/
 .zed/
+__pycache__/
 
 
 # Poetry

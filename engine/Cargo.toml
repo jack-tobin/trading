@@ -1,5 +1,5 @@
 [package]
-name = "trading"
+name = "trading_engine"
 version = "0.1.0"
 edition = "2021"
 
@@ -24,5 +24,5 @@ env_logger = "0.10"
 pyo3 = {version = "0.24.0", features = ["extension-module"]}
 
 [lib]
-name = "engine"
+name = "trading_engine"
 crate-type = ["cdylib"]
