@@ -31,7 +31,7 @@ pub struct Backtest {
 impl Backtest {
     pub fn run(
         &mut self,
-        strategy: &impl Strategy,
+        strategy: &dyn Strategy,
         data: &Vec<DatedStockData>,
         metadata: &Metadata,
     ) -> Result<BacktestResult, Box<dyn Error>> {
