@@ -1,4 +1,8 @@
-/target
+engine/target
 .vscode/
 .cargo/
 .zed/
+
+
+# Poetry
+poetry.lock
