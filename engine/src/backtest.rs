@@ -12,9 +12,9 @@ use log::{info, warn};
 
 #[allow(dead_code)]
 #[derive(Debug, new)]
-pub struct BacktestResult {
-    pnl: f64,
-    n_trades: isize,
+pub struct BacktestResult<'a> {
+    pub n_trades: isize,
+    pub portfolio: &'a Portfolio,
 }
 
 #[derive(Debug, new)]
@@ -45,13 +45,12 @@ impl Backtest {
                     let mut processor = OrderProcessor::new();
                     processor.process(order, &mut self.broker, &mut self.portfolio)?;
                     self.n_trades += 1;
-                    self.pnl = self.portfolio.pnl;
                 },
                 None => (),
             }
         }
 
-        Ok(BacktestResult::new(self.pnl, self.n_trades))
+        Ok(BacktestResult::new(self.n_trades, &self.portfolio))
     }
 }
 
@@ -79,7 +78,12 @@ impl OrderProcessor {
                   quote.quantity, confirm.quantity_filled);
         }
 
-        let trade = Trade::new(confirm.executed_price, confirm.quantity_filled);
+        let trade = Trade::new(
+            confirm.ticker,
+            confirm.executed_timestamp,
+            confirm.executed_price,
+            confirm.quantity_filled,
+    );
 
         portfolio.trades.push(trade);
         portfolio.position += confirm.quantity_filled;

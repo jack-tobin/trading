@@ -1,9 +1,12 @@
 
+use chrono::{DateTime, Utc};
 use derive_new::new;
 
 #[allow(dead_code)]
 #[derive(Debug, new)]
 pub struct Trade {
+    pub ticker: String,
+    pub timestamp: DateTime<Utc>,
     pub price: f64,
     pub quantity: i64,
 }
