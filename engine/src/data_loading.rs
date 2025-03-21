@@ -146,7 +146,7 @@ impl AlphaVantage {
 
     pub fn get_timeseries(
         &self,
-        ticker: String,
+        ticker: &String,
         interval: &Interval,
     ) -> Result<Vec<DatedStockData>, Box<dyn Error>> {
         let function = self._api_function_from_interval(interval)?;
@@ -155,7 +155,17 @@ impl AlphaVantage {
         if !response.status().is_success() {
             return Err(format!("Failed to get timeseries data: {}", response.status()).into());
         }
-        let timeseries = response.json::<TimeSeriesResponse>()?;
+
+        let text = response.text()?;
+        let json: Value = serde_json::from_str(&text)?;
+
+        if let Some(info) = json.get("Information") {
+            if info.as_str().unwrap_or("").contains("API rate limit") {
+                return Err("Alpha Vantage API rate limit exceeded".into());
+            }
+        }
+
+        let timeseries = serde_json::from_str(&text)?;
         self._unpack_ts_data(timeseries)
     }
 

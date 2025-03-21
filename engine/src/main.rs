@@ -18,7 +18,7 @@ use crate::strategy::*;
 use crate::backtest::*;
 
 use env_logger::Builder;
-use log::{info, LevelFilter};
+use log::{info, error, LevelFilter};
 
 
 fn main() {
@@ -26,22 +26,29 @@ fn main() {
         .filter_level(LevelFilter::Info)
         .init();
 
-    let raw_ticker: &str = "AAPL";
+    // Stuff to refactor into Python bindings.
+    let ticker: &str = "AAPL";
     let window: u32 = 90;
     let capital: isize = 1_000_000;
+    let long_qty: i64 = 100;
+    let short_qty: i64 = -100;
+
+    let metadata = Metadata::new(ticker.to_string());
 
     let loader = AlphaVantage;
-    let metadata = Metadata::new(raw_ticker.to_string());
-    let ticker = metadata.symbol.clone();
-
-    let data = loader.get_timeseries(ticker, &Interval::Day)
-        .expect("Unable to generate data.");
+    let data = match loader.get_timeseries(&metadata.symbol, &Interval::Day) {
+        Ok(data) => data,
+        Err(e) => {
+            error!("{}", e);
+            return;
+        }
+    };
 
     let portfolio = Portfolio::new(capital);
 
     let strategy_factory: &mut StrategyFactory = get_strategy_factory();
 
-    let strategy: Box<dyn Strategy> = strategy_factory.create("ma_crossover", window, 100, -100)
+    let strategy: Box<dyn Strategy> = strategy_factory.create("ma_crossover", window, long_qty, short_qty)
         .expect("Unable to generate strategy.");
     let mut backtest = Backtest::new(window, portfolio);
 
