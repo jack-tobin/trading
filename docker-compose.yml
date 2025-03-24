@@ -14,12 +14,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8050:8050"
-    volumes:
-      - ./python_frontend:/app
-      - ./rust_engine:/rust_engine
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - ENGINE_PATH=/engine/target/debug/trading
       - PYTHONUNBUFFERED=1
     depends_on:
       - redis

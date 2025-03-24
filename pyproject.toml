@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
 dependencies = [
     "redis (>=5.2.1,<6.0.0)",
     "plotly (>=6.0.1,<7.0.0)",
@@ -18,7 +18,9 @@ dependencies = [
     "flake8 (>=7.1.2,<8.0.0)",
     "ruff (>=0.11.1,<0.12.0)",
     "flask (<3.1)",
-    "maturin (>=1.8.3,<2.0.0)"
+    "maturin (>=1.8.3,<2.0.0)",
+    "dash-bootstrap-components (==2.0.0)",
+    "setuptools (>=78.0.1,<79.0.0)"
 ]
 
 [tool.poetry.scripts]
